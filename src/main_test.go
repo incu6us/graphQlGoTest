@@ -1,6 +1,7 @@
 package main
 
 import (
+  "fmt";
   "testing";
   "strings";
   "encoding/json";
@@ -41,42 +42,50 @@ func TestDate(t *testing.T){
 func TestHttp(t *testing.T)  {
   go Handler()
 
-  data0, err0 := HttpCheck("timeQuery")
+  // HttpCheck("timeQuery")
+  // HttpCheck("dateQuery")
+  time, _, err0 := HttpCheck("timeQuery")
   if err0 != nil {
     t.Fail()
   }
 
   // Check Time
-  if strings.Split(data0, " ")[0] != GetTimeQuery().Time {
+  if time.Time != GetTimeQuery().Time {
     t.Fail()
   }
 
   // Check Timestamp
-  if strings.Split(data0, " ")[1] != strconv.Itoa(int(GetTimeQuery().Timestamp)) {
+  if time.Timestamp != strconv.Itoa(int(GetTimeQuery().Timestamp)) {
     t.Fail()
   }
 
-  data1, err1 := HttpCheck("dateQuery")
+  _, date, err1 := HttpCheck("dateQuery")
   if err1 != nil {
     t.Fail()
   }
 
   // Chaeck Date
-  if strings.Split(data1, " ")[0] != GetDateQuery().Date {
+  if date.Date != GetDateQuery().Date {
     t.Fail()
   }
 
   // Chaeck Date Timestamp
-  if strings.Split(data1, " ")[1] != strconv.Itoa(int(GetDateQuery().Timestamp)) {
+  if date.Timestamp != strconv.Itoa(int(GetDateQuery().Timestamp)) {
     t.Fail()
   }
 }
 
 // Query to server with "timeQuery" or "dateQuery"
-func HttpCheck(typeQuery string) (data string, err error){
+func HttpCheck(typeQuery string) (time TimeQueryTest, date DateQueryTest, err error){
+  var url string
   client := &http.Client{}
 
-  url := "http://localhost:8081/graphql?query={"+typeQuery+"}"
+  if typeQuery == "timeQuery" {
+    url = "http://localhost:8081/graphql?query={"+typeQuery+"{time,timestamp}}"
+  } else if typeQuery == "dateQuery"{
+    url = "http://localhost:8081/graphql?query={"+typeQuery+"{date,timestamp}}"
+  }
+
   req, e := http.NewRequest("GET", url, nil)
   req.Header.Set("Content-Type", "application/json")
   if e != nil {
@@ -93,16 +102,20 @@ func HttpCheck(typeQuery string) (data string, err error){
 
   if typeQuery == "timeQuery" {
     var result TimeDataStruct
-    json.Unmarshal(body, &result)
-    convF := strings.Replace(result.Data.TimeQuery, "{", "", -1)
-    convL := strings.Replace(convF, "}", "", -1)
-    data = convL
+    err := json.Unmarshal(body, &result)
+    if err != nil {
+      fmt.Println(err)
+      fmt.Println(string(body))
+    }
+    time = result.Data.TQuery
   } else if typeQuery == "dateQuery" {
     var result DateDataStruct
-    json.Unmarshal(body, &result)
-    convF := strings.Replace(result.Data.DateQuery, "{", "", -1)
-    convL := strings.Replace(convF, "}", "", -1)
-    data = convL
+    err := json.Unmarshal(body, &result)
+    if err != nil {
+      fmt.Println(err)
+      fmt.Println(string(body))
+    }
+    date = result.Data.DQuery
   }
   return
 }
@@ -113,7 +126,12 @@ type TimeDataStruct struct {
 }
 
 type TimeQueryStruct struct {
-  TimeQuery string `json:"timeQuery"`
+  TQuery TimeQueryTest `json:"timeQuery"`
+}
+
+type TimeQueryTest struct {
+  Time string `json:"time"`
+  Timestamp string `json:"timestamp"`
 }
 
 // Date query
@@ -122,5 +140,10 @@ type DateDataStruct struct {
 }
 
 type DateQueryStruct struct {
-  DateQuery string `json:"dateQuery"`
+  DQuery DateQueryTest `json:"dateQuery"`
+}
+
+type DateQueryTest struct {
+  Date string `json:"date"`
+  Timestamp string `json:"timestamp"`
 }
